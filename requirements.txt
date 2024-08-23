@@ -1,0 +1,2 @@
+colorama~=0.4.6
+colorpick==2.4.3

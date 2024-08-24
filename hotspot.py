@@ -2,8 +2,14 @@ import subprocess
 import sys
 import platform
 from time import sleep
+
 from colorama import init, Fore
 from colorpick import pick 
+import distro
+
+RED, GREEN, CYAN, = ['']*3
+
+SELECTION_MAPPING = {}
 
 def stompcolors_init():
     init(autoreset=True)
@@ -21,6 +27,23 @@ def is_windows():
 
 def is_linux():
     return platform.system().lower() == "linux"
+
+def ensure_nmcli():
+    if not subprocess.getoutput('which nmcli'):
+        print("nmcli is not installed.")
+        if is_linux():
+            linux_distro = distro.id().lower()
+            instructions = "You can install it with:\n\t"
+            if "ubuntu" in linux_distro or "debian" in linux_distro:
+                print(f"{instructions}sudo apt-get install network-manager")
+            elif "centos" in linux_distro or "rhel" in linux_distro or "fedora" in linux_distro:
+                print(f"{instructions}sudo yum install NetworkManager")
+            else:
+                print(f"Please refer to your distribution's documentation to install NetworkManager.")
+        else:
+            print(f"Operating system {platform.system()} not recognized. Please check the installation instructions for your OS.")
+        
+        sys.exit(1)
 
 def catch_error_message(error):
     print(f"{RED}\t{error}\n")
@@ -192,20 +215,46 @@ def doggo():
     print(woof(bork))
     sys.exit()
 
-selection_mapping = {
-    1: configure_hotspot_windows if is_windows() else configure_hotspot_linux,
-    2: start_hotspot_windows if is_windows() else start_hotspot_linux,
-    3: stop_hotspot_windows if is_windows() else stop_hotspot_linux,
-    4: view_hotspot_settings_windows if is_windows() else view_hotspot_settings_linux,
-    5: view_wlan_settings_windows if is_windows() else view_wlan_settings_linux,
-    6: show_blocked_windows if is_windows() else show_blocked_linux,
-    7: show_interface_info_windows if is_windows() else show_interface_info_linux,
-    8: display_all_info_windows if is_windows() else display_all_info_linux,
-    9: show_available_drivers_windows if is_windows() else show_available_drivers_linux,
-    10: doggo
-}
+def make_selection_mapping():
+    global SELECTION_MAPPING
+    mappings = {
+        "windows": {
+            1: configure_hotspot_windows,
+            2: start_hotspot_windows,
+            3: stop_hotspot_windows,
+            4: view_hotspot_settings_windows,
+            5: view_wlan_settings_windows,
+            6: show_blocked_windows,
+            7: show_interface_info_windows,
+            8: display_all_info_windows,
+            9: show_available_drivers_windows,
+            10: doggo
+        },
+        "linux": {
+            1: configure_hotspot_linux,
+            2: start_hotspot_linux,
+            3: stop_hotspot_linux,
+            4: view_hotspot_settings_linux,
+            5: view_wlan_settings_linux,
+            6: show_blocked_linux,
+            7: show_interface_info_linux,
+            8: display_all_info_linux,
+            9: show_available_drivers_linux,
+            10: doggo
+        }
+    }
+
+    if is_windows():
+        SELECTION_MAPPING = mappings["windows"]
+    elif is_linux():
+        ensure_nmcli()
+        SELECTION_MAPPING = mappings["linux"]
+    else:
+        print("Whoops, no workie on macOS, sowwie.")
+
 
 def load_menu(parameter=None):
+    make_selection_mapping()
     selections = {
         'Configure a Wifi HotSpot': 1,
         'Start Wifi HotSpot': 2,
@@ -228,7 +277,7 @@ def load_menu(parameter=None):
         stop_hotspot_windows() if is_windows() else stop_hotspot_linux()
 
     option, _ = pick(options, title)
-    selection_mapping[selections[option]]()
+    SELECTION_MAPPING[selections[option]]()
 
 if __name__ == "__main__":
     load_menu(parameter=sys.argv[1] if len(sys.argv) > 1 else None)
